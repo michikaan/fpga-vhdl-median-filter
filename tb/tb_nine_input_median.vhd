@@ -7,7 +7,7 @@ end tb_nine_input_median;
 
 architecture Behavioral of tb_nine_input_median is
 
-    constant c_clkperiod : time := 10 ns;
+    constant C_CLK_PERIOD : time := 10 ns;
 
     type integer_array_9 is array (0 to 8) of integer;
 
@@ -20,30 +20,38 @@ architecture Behavioral of tb_nine_input_median is
     signal pixel_valid : STD_LOGIC := '0';
     signal pixel_ready : STD_LOGIC;
 
-    signal median_out : STD_LOGIC_VECTOR(7 downto 0);
+    signal median_out   : STD_LOGIC_VECTOR(7 downto 0);
     signal median_valid : STD_LOGIC;
+
+    signal simulation_done : STD_LOGIC := '0';
 
 begin
 
     DUT : entity work.nine_input_median
-    port map (
-        CLK          => clk,
-        rst          => rst,
-        pixel_in     => pixel_in,
-        pixel_valid  => pixel_valid,
-        pixel_ready  => pixel_ready,
-        median_out   => median_out,
-        median_valid => median_valid
-    );
+        generic map (
+            G_PIXEL_WIDTH => 8
+        )
+        port map (
+            clk          => clk,
+            rst          => rst,
+            pixel_in     => pixel_in,
+            pixel_valid  => pixel_valid,
+            pixel_ready  => pixel_ready,
+            median_out   => median_out,
+            median_valid => median_valid
+        );
 
     P_CLKGEN : process
     begin
-        while true loop
+        while simulation_done = '0' loop
             clk <= '0';
-            wait for c_clkperiod / 2;
+            wait for C_CLK_PERIOD / 2;
             clk <= '1';
-            wait for c_clkperiod / 2;
+            wait for C_CLK_PERIOD / 2;
         end loop;
+
+        clk <= '0';
+        wait;
     end process P_CLKGEN;
 
     P_STIMULUS : process
@@ -114,10 +122,10 @@ begin
         wait for 1 ns;
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(20, 8))
-            report "TEST 1 ERROR: Beklenen median 20."
-            severity error;
+            report "TEST 1 ERROR: expected median 20."
+            severity failure;
 
-        report "TEST 1 SUCCESSFUL" severity note;
+        report "TEST 1 PASSED" severity note;
 
         apply_reset(clk, rst, pixel_valid, pixel_in);
 
@@ -133,10 +141,10 @@ begin
         wait for 1 ns;
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(5, 8))
-            report "TEST 2 ERROR: Beklenen median 5."
-            severity error;
+            report "TEST 2 ERROR: expected median 5."
+            severity failure;
 
-        report "TEST 2 SUCCESSFUL" severity note;
+        report "TEST 2 PASSED" severity note;
 
         apply_reset(clk, rst, pixel_valid, pixel_in);
 
@@ -152,10 +160,10 @@ begin
         wait for 1 ns;
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(77, 8))
-            report "TEST 3 ERROR: Beklenen median 77."
-            severity error;
+            report "TEST 3 ERROR: expected median 77."
+            severity failure;
 
-        report "TEST 3 SUCCESSFUL" severity note;
+        report "TEST 3 PASSED" severity note;
 
         apply_reset(clk, rst, pixel_valid, pixel_in);
 
@@ -171,10 +179,10 @@ begin
         wait for 1 ns;
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(20, 8))
-            report "TEST 4 ERROR: Beklenen median 20."
-            severity error;
+            report "TEST 4 ERROR: expected median 20."
+            severity failure;
 
-        report "TEST 4 SUCCESSFUL" severity note;
+        report "TEST 4 PASSED" severity note;
 
         apply_reset(clk, rst, pixel_valid, pixel_in);
 
@@ -190,17 +198,15 @@ begin
         wait for 1 ns;
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(100, 8))
-            report "TEST 5 ERROR: Beklenen median 100."
-            severity error;
-
-        report "TEST 5 SUCCESSFUL" severity note;
-        report "ALL MEDIAN CORE TESTS SUCCESSFUL" severity note;
-
-        wait for c_clkperiod * 5;
-
-        assert false
-            report "SIMULATION FINISHED"
+            report "TEST 5 ERROR: expected median 100."
             severity failure;
+
+        report "TEST 5 PASSED" severity note;
+        report "ALL MEDIAN CORE TESTS PASSED" severity note;
+
+        wait for C_CLK_PERIOD * 2;
+        simulation_done <= '1';
+        wait;
 
     end process P_STIMULUS;
 
