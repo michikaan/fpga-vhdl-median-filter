@@ -1,12 +1,11 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
 
 entity window_3x3 is
     generic (
-        G_IMAGE_WIDTH  : integer := 130;
-        G_IMAGE_HEIGHT : integer := 130;
-        G_PIXEL_WIDTH  : integer := 8
+        G_IMAGE_WIDTH  : positive := 130;
+        G_IMAGE_HEIGHT : positive := 130;
+        G_PIXEL_WIDTH  : positive := 8
     );
     Port (
         clk          : in  STD_LOGIC;
@@ -34,8 +33,12 @@ architecture Behavioral of window_3x3 is
     type line_buffer_t is array (0 to G_IMAGE_WIDTH-1)
         of STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
 
-    signal line_buffer1 : line_buffer_t := (others => (others => '0'));
-    signal line_buffer2 : line_buffer_t := (others => (others => '0'));
+    -- These memories intentionally have no full-array reset. Before the
+    -- first valid 3x3 window can be asserted, two complete rows have already
+    -- overwritten every location that will be read. Avoiding a memory reset
+    -- also makes RAM inference more synthesis-friendly on FPGA devices.
+    signal line_buffer1 : line_buffer_t;
+    signal line_buffer2 : line_buffer_t;
 
     signal row_count    : integer range 0 to G_IMAGE_HEIGHT-1 := 0;
     signal column_count : integer range 0 to G_IMAGE_WIDTH-1  := 0;
@@ -45,10 +48,21 @@ architecture Behavioral of window_3x3 is
     signal w20_reg, w21_reg, w22_reg : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0) := (others => '0');
 
     signal window_valid_reg : STD_LOGIC := '0';
-    signal pixel_ready_int  : STD_LOGIC := '0';
+    signal pixel_ready_int  : STD_LOGIC;
 
 begin
 
+    assert G_IMAGE_WIDTH >= 3
+        report "G_IMAGE_WIDTH must be at least 3."
+        severity failure;
+
+    assert G_IMAGE_HEIGHT >= 3
+        report "G_IMAGE_HEIGHT must be at least 3."
+        severity failure;
+
+    -- This simple implementation allows only one pending window at a time.
+    -- When the downstream median unit is busy, input backpressure propagates
+    -- all the way to the source.
     pixel_ready_int <= '1'
         when window_valid_reg = '0' and rst = '0'
         else '0';
@@ -84,20 +98,18 @@ begin
                 w21_reg <= (others => '0');
                 w22_reg <= (others => '0');
 
-                line_buffer1 <= (others => (others => '0'));
-                line_buffer2 <= (others => (others => '0'));
-
             else
-                -- Consume the currently presented window.
+                -- Consume the currently presented window. Because
+                -- pixel_ready is low while a window is pending, this design
+                -- intentionally introduces a bubble between valid windows.
                 if window_valid_reg = '1' and window_ready = '1' then
                     window_valid_reg <= '0';
                 end if;
 
                 -- Accept a new input pixel only when there is no pending
-                -- window waiting for the downstream block.
+                -- output window.
                 if pixel_valid = '1' and pixel_ready_int = '1' then
 
-                    -- Shift the active 3x3 window horizontally.
                     -- Top row: row i-2 from line_buffer2.
                     w00_reg <= w01_reg;
                     w01_reg <= w02_reg;
@@ -113,19 +125,20 @@ begin
                     w21_reg <= w22_reg;
                     w22_reg <= pixel_in;
 
-                    -- Update line buffers after reading their old values.
+                    -- Read-before-write behavior provides the previous rows.
                     line_buffer2(column_count) <= line_buffer1(column_count);
                     line_buffer1(column_count) <= pixel_in;
 
-                    -- The first complete 3x3 window is formed when the
-                    -- current pixel is at row index 2 and column index 2.
+                    -- Counters are zero-based. The third row and third column
+                    -- correspond to index 2, which is the first complete 3x3
+                    -- neighborhood.
                     if row_count >= 2 and column_count >= 2 then
                         window_valid_reg <= '1';
                     else
                         window_valid_reg <= '0';
                     end if;
 
-                    -- Advance row-major input coordinates.
+                    -- Advance row-major coordinates only for accepted pixels.
                     if column_count = G_IMAGE_WIDTH - 1 then
                         column_count <= 0;
 
