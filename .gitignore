@@ -1,0 +1,29 @@
+# Vivado generated files
+.Xil/
+*.jou
+*.log
+*.str
+*.pb
+*.wdb
+*.vcd
+*.runs/
+*.cache/
+*.gen/
+*.ip_user_files/
+*.sim/
+
+# MATLAB generated artifacts
+image_gray_128.png
+image_noisy_128.png
+image_noisy_padded_130.png
+image_reference_128.png
+vhdl_output_128.png
+noisy_pixels_padded_130.txt
+reference_pixels_128.txt
+vhdl_output_128.txt
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
