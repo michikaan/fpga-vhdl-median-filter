@@ -147,34 +147,36 @@ begin
                 window_count <= 0;
 
             elsif window_valid = '1' and window_ready = '1' then
-                received(0) := to_integer(unsigned(window_0));
-                received(1) := to_integer(unsigned(window_1));
-                received(2) := to_integer(unsigned(window_2));
-                received(3) := to_integer(unsigned(window_3));
-                received(4) := to_integer(unsigned(window_4));
-                received(5) := to_integer(unsigned(window_5));
-                received(6) := to_integer(unsigned(window_6));
-                received(7) := to_integer(unsigned(window_7));
-                received(8) := to_integer(unsigned(window_8));
+                if window_count < 9 then
+                    received(0) := to_integer(unsigned(window_0));
+                    received(1) := to_integer(unsigned(window_1));
+                    received(2) := to_integer(unsigned(window_2));
+                    received(3) := to_integer(unsigned(window_3));
+                    received(4) := to_integer(unsigned(window_4));
+                    received(5) := to_integer(unsigned(window_5));
+                    received(6) := to_integer(unsigned(window_6));
+                    received(7) := to_integer(unsigned(window_7));
+                    received(8) := to_integer(unsigned(window_8));
 
-                assert window_count < 9
-                    report "Unexpected extra 3x3 window."
-                    severity failure;
+                    base_idx := window_count * 9;
 
-                base_idx := window_count * 9;
+                    for i in 0 to 8 loop
+                        assert received(i) = C_EXPECTED_WINDOWS(base_idx + i)
+                            report
+                                "Window " & integer'image(window_count) &
+                                ", element " & integer'image(i) &
+                                " mismatch. Expected " &
+                                integer'image(C_EXPECTED_WINDOWS(base_idx + i)) &
+                                ", received " & integer'image(received(i))
+                            severity failure;
+                    end loop;
 
-                for i in 0 to 8 loop
-                    assert received(i) = C_EXPECTED_WINDOWS(base_idx + i)
-                        report
-                            "Window " & integer'image(window_count) &
-                            ", element " & integer'image(i) &
-                            " mismatch. Expected " &
-                            integer'image(C_EXPECTED_WINDOWS(base_idx + i)) &
-                            ", received " & integer'image(received(i))
+                    window_count <= window_count + 1;
+                else
+                    assert false
+                        report "Unexpected extra 3x3 window."
                         severity failure;
-                end loop;
-
-                window_count <= window_count + 1;
+                end if;
             end if;
         end if;
     end process P_CHECKER;
