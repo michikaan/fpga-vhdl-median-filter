@@ -1,25 +1,27 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
 
 entity paralel_to_series_converter is
+    generic (
+        G_PIXEL_WIDTH : positive := 8
+    );
     Port (
         clk                : in  STD_LOGIC;
         rst                : in  STD_LOGIC;
 
-        window_0           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_1           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_2           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_3           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_4           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_5           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_6           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_7           : in  STD_LOGIC_VECTOR(7 downto 0);
-        window_8           : in  STD_LOGIC_VECTOR(7 downto 0);
+        window_0           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_1           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_2           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_3           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_4           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_5           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_6           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_7           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+        window_8           : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
         window_valid       : in  STD_LOGIC;
         window_ready       : out STD_LOGIC;
 
-        median_pixel_in    : out STD_LOGIC_VECTOR(7 downto 0);
+        median_pixel_in    : out STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
         median_pixel_valid : out STD_LOGIC;
         median_valid       : in  STD_LOGIC;
         median_pixel_ready : in  STD_LOGIC
@@ -29,7 +31,8 @@ end paralel_to_series_converter;
 architecture Behavioral of paralel_to_series_converter is
 
     type state_t is (S_WAIT_WINDOW, S_SEND_PIXELS, S_WAIT_MEDIAN);
-    type window_array_t is array (0 to 8) of STD_LOGIC_VECTOR(7 downto 0);
+    type window_array_t is array (0 to 8)
+        of STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
 
     signal state      : state_t := S_WAIT_WINDOW;
     signal window_arr : window_array_t := (others => (others => '0'));
@@ -45,8 +48,10 @@ begin
         when state = S_SEND_PIXELS and rst = '0'
         else '0';
 
-    -- Combinational selection keeps the currently addressed pixel stable
-    -- before the rising edge on which valid/ready handshaking occurs.
+    -- The addressed pixel is selected combinationally. Therefore it is
+    -- already stable before the rising edge on which valid/ready transfer
+    -- takes place. If the median core deasserts ready, send_index does not
+    -- advance and the same pixel remains on the bus.
     median_pixel_in <= window_arr(send_index)
         when state = S_SEND_PIXELS and rst = '0'
         else (others => '0');
@@ -79,6 +84,8 @@ begin
                         end if;
 
                     when S_SEND_PIXELS =>
+                        -- Advance only after a successful input handshake
+                        -- with the median core.
                         if median_pixel_ready = '1' then
                             if send_index = 8 then
                                 send_index <= 0;
@@ -89,6 +96,8 @@ begin
                         end if;
 
                     when S_WAIT_MEDIAN =>
+                        -- median_valid is used instead of inferring result
+                        -- completion from the input-ready signal.
                         if median_valid = '1' then
                             state <= S_WAIT_WINDOW;
                         end if;
