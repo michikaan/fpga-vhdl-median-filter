@@ -138,7 +138,11 @@ begin
         wait until falling_edge(clk);
         median_valid <= '0';
 
-        wait until window_ready = '1';
+        -- window_ready should already have returned high after the rising
+        -- edge that sampled median_valid.
+        assert window_ready = '1'
+            report "Converter did not return to S_WAIT_WINDOW after median_valid."
+            severity failure;
 
         report "PARALLEL-TO-SERIAL BACKPRESSURE TEST PASSED" severity note;
         wait for C_CLK_PERIOD * 2;
