@@ -20,13 +20,15 @@ architecture Behavioral of tb_median_filter_file is
     constant C_OUTPUT_HEIGHT      : integer := C_IMAGE_HEIGHT - 2;
     constant C_OUTPUT_PIXEL_COUNT : integer := C_OUTPUT_WIDTH * C_OUTPUT_HEIGHT;
 
-    -- These are relative to the simulator working directory. Copy the
-    -- MATLAB-generated input file there, or edit this path if required.
-    constant C_INPUT_FILE  : string := "noisy_pixels_padded_130.txt";
-    constant C_OUTPUT_FILE : string := "vhdl_output_128.txt";
+    -- Files are relative to the simulator working directory. Run the MATLAB
+    -- preparation script first and copy/use the generated files there.
+    constant C_INPUT_FILE     : string := "noisy_pixels_padded_130.txt";
+    constant C_REFERENCE_FILE : string := "reference_pixels_128.txt";
+    constant C_OUTPUT_FILE    : string := "vhdl_output_128.txt";
 
-    file F_INPUT  : text open read_mode  is C_INPUT_FILE;
-    file F_OUTPUT : text open write_mode is C_OUTPUT_FILE;
+    file F_INPUT     : text open read_mode  is C_INPUT_FILE;
+    file F_REFERENCE : text open read_mode  is C_REFERENCE_FILE;
+    file F_OUTPUT    : text open write_mode is C_OUTPUT_FILE;
 
     signal clk          : STD_LOGIC := '0';
     signal rst          : STD_LOGIC := '1';
@@ -103,7 +105,7 @@ begin
 
             assert pixel_value >= 0 and pixel_value <= 255
                 report
-                    "Invalid pixel value at line " &
+                    "Invalid pixel value at input line " &
                     integer'image(input_count + 1)
                 severity failure;
 
@@ -118,7 +120,8 @@ begin
             );
             pixel_valid <= '1';
 
-            -- Keep both valid and data stable until the DUT accepts them.
+            -- Hold data and valid stable until a rising edge on which the
+            -- DUT asserts pixel_ready.
             loop
                 wait until rising_edge(clk);
                 exit when pixel_ready = '1';
@@ -143,9 +146,12 @@ begin
     end process P_INPUT;
 
     P_OUTPUT : process
-        variable output_line  : line;
-        variable output_value : integer;
-        variable output_count : integer := 0;
+        variable output_line    : line;
+        variable reference_line : line;
+        variable output_value   : integer;
+        variable reference_value: integer;
+        variable output_count   : integer := 0;
+        variable reference_good : boolean;
     begin
         output_count_s <= 0;
         output_done    <= '0';
@@ -158,6 +164,35 @@ begin
             if median_valid = '1' then
                 output_value := to_integer(unsigned(median_out));
 
+                -- Every VHDL output is checked against the MATLAB reference
+                -- produced from the same padded input image.
+                assert not endfile(F_REFERENCE)
+                    report "Reference file ended before all VHDL outputs were checked."
+                    severity failure;
+
+                readline(F_REFERENCE, reference_line);
+                read(reference_line, reference_value, reference_good);
+
+                assert reference_good
+                    report
+                        "Reference file contains an unreadable line. Line: " &
+                        integer'image(output_count + 1)
+                    severity failure;
+
+                assert reference_value >= 0 and reference_value <= 255
+                    report
+                        "Invalid reference pixel at line " &
+                        integer'image(output_count + 1)
+                    severity failure;
+
+                assert output_value = reference_value
+                    report
+                        "Median mismatch at output pixel " &
+                        integer'image(output_count) &
+                        ". Expected " & integer'image(reference_value) &
+                        ", received " & integer'image(output_value)
+                    severity failure;
+
                 write(output_line, output_value);
                 writeline(F_OUTPUT, output_line);
 
@@ -165,6 +200,10 @@ begin
                 output_count_s <= output_count;
             end if;
         end loop;
+
+        assert endfile(F_REFERENCE)
+            report "Reference file contains more than 16384 pixels."
+            severity failure;
 
         output_done <= '1';
         wait;
@@ -183,8 +222,8 @@ begin
             severity failure;
 
         report
-            "File-based median filter simulation completed successfully. " &
-            "16900 input pixels and 16384 output pixels processed."
+            "SELF-CHECK PASSED: 16900 input pixels processed and all " &
+            "16384 VHDL outputs matched the MATLAB reference."
             severity note;
 
         wait for C_CLK_PERIOD * 2;
