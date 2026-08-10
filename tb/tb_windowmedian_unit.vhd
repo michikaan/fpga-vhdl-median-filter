@@ -25,9 +25,14 @@ architecture Behavioral of tb_windowmedian_unit is
     signal median_out   : STD_LOGIC_VECTOR(7 downto 0);
     signal median_valid : STD_LOGIC;
 
+    signal simulation_done : STD_LOGIC := '0';
+
 begin
 
     DUT : entity work.windowmedian_unit
+        generic map (
+            G_PIXEL_WIDTH => 8
+        )
         port map (
             clk          => clk,
             rst          => rst,
@@ -48,12 +53,15 @@ begin
 
     P_CLKGEN : process
     begin
-        while true loop
+        while simulation_done = '0' loop
             clk <= '0';
             wait for C_CLK_PERIOD / 2;
             clk <= '1';
             wait for C_CLK_PERIOD / 2;
         end loop;
+
+        clk <= '0';
+        wait;
     end process;
 
     P_STIMULUS : process
@@ -87,9 +95,12 @@ begin
 
         assert median_out = STD_LOGIC_VECTOR(to_unsigned(5, 8))
             report "windowmedian_unit ERROR: expected median 5"
-            severity error;
+            severity failure;
 
-        report "windowmedian_unit TEST SUCCESSFUL" severity note;
+        report "WINDOWMEDIAN UNIT TEST PASSED" severity note;
+
+        wait for C_CLK_PERIOD * 2;
+        simulation_done <= '1';
         wait;
     end process;
 
