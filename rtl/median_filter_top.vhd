@@ -3,37 +3,45 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity median_filter_top is
     generic (
-        G_IMAGE_WIDTH  : integer := 130;
-        G_IMAGE_HEIGHT : integer := 130;
-        G_PIXEL_WIDTH  : integer := 8
+        G_IMAGE_WIDTH  : positive := 130;
+        G_IMAGE_HEIGHT : positive := 130;
+        G_PIXEL_WIDTH  : positive := 8
     );
     Port (
         clk          : in  STD_LOGIC;
         rst          : in  STD_LOGIC;
-        pixel_in     : in  STD_LOGIC_VECTOR(7 downto 0);
+        pixel_in     : in  STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
         pixel_valid  : in  STD_LOGIC;
         pixel_ready  : out STD_LOGIC;
-        median_out   : out STD_LOGIC_VECTOR(7 downto 0);
+        median_out   : out STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
         median_valid : out STD_LOGIC
     );
 end median_filter_top;
 
 architecture Behavioral of median_filter_top is
 
-    signal window_0_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_1_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_2_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_3_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_4_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_5_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_6_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_7_s : STD_LOGIC_VECTOR(7 downto 0);
-    signal window_8_s : STD_LOGIC_VECTOR(7 downto 0);
+    signal window_0_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_1_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_2_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_3_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_4_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_5_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_6_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_7_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
+    signal window_8_s : STD_LOGIC_VECTOR(G_PIXEL_WIDTH-1 downto 0);
 
     signal window_valid_s : STD_LOGIC;
     signal window_ready_s : STD_LOGIC;
 
 begin
+
+    assert G_IMAGE_WIDTH >= 3
+        report "G_IMAGE_WIDTH must be at least 3 for a 3x3 filter."
+        severity failure;
+
+    assert G_IMAGE_HEIGHT >= 3
+        report "G_IMAGE_HEIGHT must be at least 3 for a 3x3 filter."
+        severity failure;
 
     U_WINDOW_GENERATOR : entity work.window_3x3
         generic map (
@@ -61,6 +69,9 @@ begin
         );
 
     U_WINDOW_MEDIAN : entity work.windowmedian_unit
+        generic map (
+            G_PIXEL_WIDTH => G_PIXEL_WIDTH
+        )
         port map (
             clk          => clk,
             rst          => rst,
