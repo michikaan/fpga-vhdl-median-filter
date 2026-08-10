@@ -52,7 +52,8 @@ architecture Behavioral of tb_window_3x3 is
     signal window_8 : STD_LOGIC_VECTOR(7 downto 0);
     signal window_valid : STD_LOGIC;
 
-    signal window_count : integer range 0 to 9 := 0;
+    signal window_count    : integer range 0 to 9 := 0;
+    signal simulation_done : STD_LOGIC := '0';
 
 begin
 
@@ -83,12 +84,15 @@ begin
 
     P_CLKGEN : process
     begin
-        while true loop
+        while simulation_done = '0' loop
             clk <= '0';
             wait for C_CLK_PERIOD / 2;
             clk <= '1';
             wait for C_CLK_PERIOD / 2;
         end loop;
+
+        clk <= '0';
+        wait;
     end process P_CLKGEN;
 
     P_STIMULUS : process
@@ -134,7 +138,8 @@ begin
 
         wait until window_count = 9;
         wait for C_CLK_PERIOD * 2;
-        report "ALL WINDOW_3X3 TESTS SUCCESSFUL" severity note;
+        report "ALL WINDOW_3X3 TESTS PASSED" severity note;
+        simulation_done <= '1';
         wait;
     end process P_STIMULUS;
 
