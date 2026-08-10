@@ -34,7 +34,8 @@ architecture Behavioral of tb_median_filter_top is
     signal median_out   : STD_LOGIC_VECTOR(7 downto 0);
     signal median_valid : STD_LOGIC;
 
-    signal median_count : integer range 0 to 9 := 0;
+    signal median_count    : integer range 0 to 9 := 0;
+    signal simulation_done : STD_LOGIC := '0';
 
 begin
 
@@ -56,22 +57,25 @@ begin
 
     P_CLKGEN : process
     begin
-        while true loop
+        while simulation_done = '0' loop
             clk <= '0';
             wait for C_CLK_PERIOD / 2;
             clk <= '1';
             wait for C_CLK_PERIOD / 2;
         end loop;
+
+        clk <= '0';
+        wait;
     end process P_CLKGEN;
 
     P_STIMULUS : process
 
         procedure send_pixel (
-            constant value         : in integer;
-            signal clk_s           : in STD_LOGIC;
-            signal pixel_in_s      : out STD_LOGIC_VECTOR(7 downto 0);
-            signal pixel_valid_s   : out STD_LOGIC;
-            signal pixel_ready_s   : in STD_LOGIC
+            constant value       : in integer;
+            signal clk_s         : in STD_LOGIC;
+            signal pixel_in_s    : out STD_LOGIC_VECTOR(7 downto 0);
+            signal pixel_valid_s : out STD_LOGIC;
+            signal pixel_ready_s : in STD_LOGIC
         ) is
         begin
             wait until falling_edge(clk_s);
@@ -111,7 +115,8 @@ begin
         wait until median_count = 9;
         wait for C_CLK_PERIOD * 2;
 
-        report "ALL 5x5 TOP-LEVEL TESTS SUCCESSFUL" severity note;
+        report "ALL 5x5 TOP-LEVEL TESTS PASSED" severity note;
+        simulation_done <= '1';
         wait;
     end process P_STIMULUS;
 
@@ -126,24 +131,19 @@ begin
                 received_median := to_integer(unsigned(median_out));
 
                 if median_count < 9 then
-                    if received_median = C_EXPECTED_MEDIANS(median_count) then
+                    assert received_median = C_EXPECTED_MEDIANS(median_count)
                         report
                             "Median " & integer'image(median_count) &
-                            " correct: " & integer'image(received_median)
-                            severity note;
-                    else
-                        report
-                            "Median " & integer'image(median_count) &
-                            " ERROR. Expected " & integer'image(C_EXPECTED_MEDIANS(median_count)) &
+                            " mismatch. Expected " &
+                            integer'image(C_EXPECTED_MEDIANS(median_count)) &
                             ", received " & integer'image(received_median)
-                            severity error;
-                    end if;
+                        severity failure;
 
                     median_count <= median_count + 1;
                 else
                     assert false
                         report "Unexpected extra median output."
-                        severity error;
+                        severity failure;
                 end if;
             end if;
         end if;
