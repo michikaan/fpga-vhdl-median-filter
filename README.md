@@ -1,8 +1,15 @@
 # FPGA VHDL 3×3 Median Filter
 
-A streaming grayscale image-processing design implemented in **VHDL** and verified with **MATLAB** and **Xilinx Vivado** testbenches.
+A streaming grayscale image-processing design implemented in **VHDL**, with MATLAB reference generation and layered self-checking testbenches for Xilinx Vivado/XSim.
 
 The project applies a 3×3 median filter to an 8-bit grayscale image. MATLAB generates deterministic test vectors and a software reference, while the VHDL design processes pixels as a backpressured stream using two line buffers, a sliding-window generator, a parallel-to-serial controller, and a sequential median core.
+
+## Status
+
+- Behavioral RTL and verification project
+- Full-image MATLAB/VHDL comparison flow included
+- Image dimensions and pixel width parameterized in the RTL hierarchy
+- Hardware deployment, post-synthesis timing closure, and throughput optimization are outside the current scope
 
 ## What this project demonstrates
 
@@ -14,6 +21,7 @@ The project applies a 3×3 median filter to an 8-bit grayscale image. MATLAB gen
 - parameterized pixel width and image dimensions
 - sequential median calculation using bubble-sort comparisons
 - self-checking VHDL testbenches
+- explicit backpressure verification
 - VHDL `TEXTIO` file I/O
 - MATLAB/VHDL co-verification
 - row-major image serialization and reconstruction
@@ -142,6 +150,7 @@ The repository contains verification at several abstraction levels.
 |---|---|
 | `tb_nine_input_median.vhd` | Checks the median core with unordered, descending, repeated, salt-noise and pepper-noise patterns |
 | `tb_window_3x3.vhd` | Checks all nine 3×3 windows generated from a known 5×5 image |
+| `tb_paralel_to_series_converter.vhd` | Checks serial pixel order and verifies that data remains stable while downstream `ready` is low |
 | `tb_windowmedian_unit.vhd` | Checks converter + median-core integration |
 | `tb_median_filter_top.vhd` | Checks the complete pipeline on a 5×5 image; expected medians are `7,8,9,12,13,14,17,18,19` |
 | `tb_median_filter_file.vhd` | Reads 16,900 MATLAB pixels with `TEXTIO`, processes the full image, and checks all 16,384 outputs against the MATLAB reference |
@@ -182,7 +191,7 @@ These generated artifacts are excluded by `.gitignore`.
 3. For the full image test, run `matlab/median_filter_reference.m` first.
 4. Make `noisy_pixels_padded_130.txt` and `reference_pixels_128.txt` visible from the simulator working directory, or edit the relative file constants in `tb_median_filter_file.vhd`.
 5. Set `tb_median_filter_file` as the simulation top and run behavioral simulation.
-6. The expected final message is:
+6. A successful full-image run reaches:
 
 ```text
 SELF-CHECK PASSED: 16900 input pixels processed and all 16384 VHDL outputs matched the MATLAB reference.
@@ -215,6 +224,7 @@ A higher-performance version could use a pipelined compare-exchange network, FIF
 ├── tb/
 │   ├── tb_nine_input_median.vhd
 │   ├── tb_window_3x3.vhd
+│   ├── tb_paralel_to_series_converter.vhd
 │   ├── tb_windowmedian_unit.vhd
 │   ├── tb_median_filter_top.vhd
 │   └── tb_median_filter_file.vhd
